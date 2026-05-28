@@ -76,7 +76,7 @@ export class SiliconFlowClient {
   private timeoutMs: number;
 
   constructor() {
-    this.timeoutMs = parseInt(process.env.LENS_TIMEOUT_MS || '60000', 10);
+    this.timeoutMs = parseInt(process.env.LENS_TIMEOUT_MS || '180000', 10);
     if (KEY_POOL.length === 0) {
       console.warn('[SiliconFlow] No API keys configured — lens calls will fail');
     } else {
