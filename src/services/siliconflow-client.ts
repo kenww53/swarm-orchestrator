@@ -10,7 +10,7 @@
 
 import axios, { AxiosInstance } from 'axios';
 
-const SILICONFLOW_URL = process.env.SILICONFLOW_URL || 'https://api.siliconflow.cn/v1/chat/completions';
+const SILICONFLOW_URL = process.env.SILICONFLOW_URL || 'https://api.siliconflow.com/v1/chat/completions';
 
 // Key pool — accept multiple keys for load distribution and rate-limit resilience.
 // Scans ALL env vars matching SF_API_KEY_<n> or SILICONFLOW_API_KEY<n> patterns,
