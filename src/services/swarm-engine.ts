@@ -54,7 +54,7 @@ async function disperseAgents(input: RunSwarmInput): Promise<AgentSignal[]> {
           { role: 'user', content: input.task },
         ],
         temperature: 0.6,
-        maxTokens: 1024,
+        maxTokens: 2048,
       });
 
       // Persist signal
