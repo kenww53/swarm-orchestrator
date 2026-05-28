@@ -23,6 +23,19 @@ import {
   SwarmSynthesisResult,
 } from '../types';
 
+/**
+ * Strip <think>...</think> blocks from a response.
+ * Gemma 4's thinking mode leaks these even when asked not to.
+ */
+function stripThinking(content: string): string {
+  if (!content) return content;
+  // Strip <think>...</think> and similar variants
+  let cleaned = content.replace(/<think(?:ing)?>[\s\S]*?<\/think(?:ing)?>/gi, '');
+  // Strip any stray opening tag with no close (model ran out of tokens mid-thought)
+  cleaned = cleaned.replace(/<think(?:ing)?>[\s\S]*$/i, '');
+  return cleaned.trim();
+}
+
 interface RunSwarmInput {
   swarmId: string;
   task: string;
@@ -45,17 +58,25 @@ async function disperseAgents(input: RunSwarmInput): Promise<AgentSignal[]> {
     const loomModelId = mapModelToLoom(lensModel);
     const signalStarted = Date.now();
 
+    // Gemma 4 has thinking mode enabled by default. Append /no_think to the
+    // user message (Gemma's reduce-thinking directive) AND instruct in system
+    // prompt. Defensive: also strip any leaked <think>...</think> blocks.
+    const systemContent = `${lens.prompt}\n\nIMPORTANT: Respond directly with your analysis. Do not output thinking, reasoning steps, or <think> tags. Skip the thinking process and give the final answer immediately.`;
+    const userContent = `${input.task}\n\n/no_think`;
+
     try {
       const result = await loomClient.inference({
         modelId: loomModelId,
         service: 'swarm-orchestrator',
         messages: [
-          { role: 'system', content: lens.prompt },
-          { role: 'user', content: input.task },
+          { role: 'system', content: systemContent },
+          { role: 'user', content: userContent },
         ],
-        temperature: 0.6,
-        maxTokens: 2048,
+        temperature: 0.4,
+        maxTokens: 1024,
       });
+
+      const cleanedResponse = stripThinking(result.result);
 
       // Persist signal
       const pool = getPool();
@@ -68,7 +89,7 @@ async function disperseAgents(input: RunSwarmInput): Promise<AgentSignal[]> {
           lens.name,
           lens.prompt,
           lensModel,
-          result.result,
+          cleanedResponse,
           result.tokensUsed?.total || 0,
           result.durationMs || (Date.now() - signalStarted),
         ]
@@ -76,7 +97,7 @@ async function disperseAgents(input: RunSwarmInput): Promise<AgentSignal[]> {
 
       return {
         lensName: lens.name,
-        response: result.result,
+        response: cleanedResponse,
         tokensUsed: result.tokensUsed?.total || 0,
         durationMs: result.durationMs || (Date.now() - signalStarted),
         status: 'success',
@@ -120,7 +141,7 @@ async function discernSignals(
   signals: AgentSignal[],
   synthesisModel: SwarmModel
 ): Promise<SwarmSynthesisResult> {
-  const successful = signals.filter(s => s.status === 'success' && s.response);
+  const successful = signals.filter(s => s.status === 'success' && s.response && s.response.trim().length > 20);
 
   if (successful.length === 0) {
     return {
