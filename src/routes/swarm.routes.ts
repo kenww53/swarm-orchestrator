@@ -3,37 +3,110 @@
  *
  * The conductor's baton. Every swarm invocation enters here.
  *
- * Phase 0: Stub responses for service skeleton verification.
- * Phase 1: Real parallel agent spawning via Loom + Qwen3 synthesis.
+ * Phase 1: Real parallel agent spawning via Loom + Qwen3-235B synthesis.
+ *          IdeaForge Validation template wired into the Standard Lens Library.
  */
 
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../database/pool';
+import { runSwarm } from '../services/swarm-engine';
+import { getTemplate, listTemplates } from '../lenses';
 import {
   SwarmInvokeRequest,
   SwarmInvokeByTemplateRequest,
   SwarmInvokeResponse,
+  Lens,
+  SwarmModel,
+  SynthesisStrategy,
 } from '../types';
 
 const router = Router();
 
+async function executeInvocation(params: {
+  task: string;
+  lenses: Lens[];
+  callerService: string;
+  callerContext?: any;
+  presenceCheck: boolean;
+  templateName: string | null;
+  model: SwarmModel;
+  synthesisStrategy: SynthesisStrategy;
+  synthesisModel: SwarmModel;
+  agentTimeoutMs: number;
+}): Promise<SwarmInvokeResponse> {
+  const startedAt = Date.now();
+  const swarmId = uuidv4();
+
+  // Record invocation
+  const pool = getPool();
+  await pool.query(
+    `INSERT INTO swarm_invocations (
+      id, caller_service, caller_context, task, template_name,
+      lens_count, model, synthesis_strategy, presence_check, status
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'in_progress')`,
+    [
+      swarmId,
+      params.callerService,
+      params.callerContext ? JSON.stringify(params.callerContext) : null,
+      params.task,
+      params.templateName,
+      params.lenses.length,
+      params.model,
+      params.synthesisStrategy,
+      params.presenceCheck,
+    ]
+  );
+
+  // Run the swarm — Disperse → Gather → Discern
+  const result = await runSwarm({
+    swarmId,
+    task: params.task,
+    lenses: params.lenses,
+    defaultModel: params.model,
+    synthesisStrategy: params.synthesisStrategy,
+    synthesisModel: params.synthesisModel,
+    callerService: params.callerService,
+    templateName: params.templateName,
+    agentTimeoutMs: params.agentTimeoutMs,
+  });
+
+  const durationMs = Date.now() - startedAt;
+
+  // Update invocation with final state
+  await pool.query(
+    `UPDATE swarm_invocations
+     SET status = $1, completed_at = NOW(), total_duration_ms = $2, total_cost_tokens = $3
+     WHERE id = $4`,
+    [result.status, durationMs, result.totalTokens, swarmId]
+  );
+
+  return {
+    swarmId,
+    task: params.task,
+    status: result.status === 'failed' ? 'failed' : (result.status === 'partial' ? 'partial' : 'completed'),
+    synthesizedInsight: result.synthesis.synthesizedInsight,
+    rawSignals: result.signals,
+    convergences: result.synthesis.convergences,
+    tensions: result.synthesis.tensions,
+    dissentingVoices: result.synthesis.dissentingVoices,
+    confidence: result.synthesis.confidence,
+    presenceWitnessed: false,
+    durationMs,
+    totalTokens: result.totalTokens,
+  };
+}
+
 /**
  * POST /api/swarm/invoke
  *
- * The primary entry point. Caller provides task + lenses; orchestrator
- * spawns parallel agents, gathers signals, synthesizes through discernment.
- *
- * Phase 0: Returns a stub response that demonstrates the contract.
- *          Records the invocation in the database so we can verify
- *          the persistence layer works.
+ * Caller-defined lenses. Spawns parallel agents, gathers signals,
+ * synthesizes through Qwen3-235B.
  */
 router.post('/invoke', async (req: Request, res: Response) => {
-  const startedAt = Date.now();
   try {
     const body = req.body as SwarmInvokeRequest;
 
-    // Honest validation — no theater
     if (!body.task || typeof body.task !== 'string') {
       return res.status(400).json({ error: 'task is required and must be a string' });
     }
@@ -50,109 +123,99 @@ router.post('/invoke', async (req: Request, res: Response) => {
       });
     }
 
-    const swarmId = uuidv4();
-    const model = body.model || 'gemma-e2b';
-    const synthesisStrategy = body.synthesisStrategy || 'discernment';
-
-    // Record invocation
-    const pool = getPool();
-    await pool.query(
-      `INSERT INTO swarm_invocations (
-        id, caller_service, caller_context, task, template_name,
-        lens_count, model, synthesis_strategy, presence_check, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-      [
-        swarmId,
-        body.callerService,
-        body.callerContext ? JSON.stringify(body.callerContext) : null,
-        body.task,
-        null,
-        body.lenses.length,
-        model,
-        synthesisStrategy,
-        body.presenceCheck,
-        'in_progress',
-      ]
-    );
-
-    // PHASE 0 STUB: We honor the contract but do not yet spawn real agents.
-    // Phase 1 will implement: parallel Loom calls, signal gathering, real synthesis.
-    const stubResponse: SwarmInvokeResponse = {
-      swarmId,
+    const result = await executeInvocation({
       task: body.task,
-      status: 'completed',
-      synthesizedInsight: `[Phase 0 stub] Swarm received task with ${body.lenses.length} lenses. Real synthesis arrives in Phase 1.`,
-      rawSignals: body.lenses.map(lens => ({
-        lensName: lens.name,
-        response: `[Phase 0 stub for ${lens.name}] Real agent spawning arrives in Phase 1.`,
-        tokensUsed: 0,
-        durationMs: 0,
-        status: 'success' as const,
-      })),
-      convergences: [],
-      tensions: [],
-      dissentingVoices: [],
-      confidence: 0,
-      presenceWitnessed: false,
-      durationMs: Date.now() - startedAt,
-      totalTokens: 0,
-    };
+      lenses: body.lenses,
+      callerService: body.callerService,
+      callerContext: body.callerContext,
+      presenceCheck: true,
+      templateName: null,
+      model: body.model || 'gemma-e2b',
+      synthesisStrategy: body.synthesisStrategy || 'discernment',
+      synthesisModel: body.synthesisModel || 'qwen3-235b',
+      agentTimeoutMs: body.timeout || parseInt(process.env.AGENT_TIMEOUT_MS || '30000', 10),
+    });
 
-    // Mark complete
-    await pool.query(
-      `UPDATE swarm_invocations SET status = $1, completed_at = NOW(), total_duration_ms = $2 WHERE id = $3`,
-      ['completed', Date.now() - startedAt, swarmId]
-    );
-
-    return res.json(stubResponse);
+    return res.json(result);
   } catch (error: any) {
     console.error('[Swarm Invoke] Error:', error);
-    return res.status(500).json({
-      error: 'Swarm invocation failed',
-      message: error.message,
-    });
+    return res.status(500).json({ error: 'Swarm invocation failed', message: error.message });
   }
 });
 
 /**
  * POST /api/swarm/invoke-by-template
  *
- * Convenience for callers using one of the seven canonical templates.
- * Phase 1 will populate the standard lens library.
+ * Uses one of the seven canonical templates from the Standard Lens Library.
  */
 router.post('/invoke-by-template', async (req: Request, res: Response) => {
-  const body = req.body as SwarmInvokeByTemplateRequest;
+  try {
+    const body = req.body as SwarmInvokeByTemplateRequest;
 
-  if (!body.templateName) {
-    return res.status(400).json({ error: 'templateName is required' });
+    if (!body.templateName) {
+      return res.status(400).json({ error: 'templateName is required' });
+    }
+    if (!body.task) {
+      return res.status(400).json({ error: 'task is required' });
+    }
+    if (!body.callerService) {
+      return res.status(400).json({ error: 'callerService is required' });
+    }
+    if (body.presenceCheck !== true) {
+      return res.status(400).json({
+        error: 'presenceCheck must be true — no swarm is invoked from anxiety',
+        guidance: 'Caller must get still and affirm presence before invoking',
+      });
+    }
+
+    const template = getTemplate(body.templateName);
+    if (!template) {
+      return res.status(404).json({
+        error: `Template not found: ${body.templateName}`,
+        available: listTemplates(),
+      });
+    }
+
+    const result = await executeInvocation({
+      task: body.task,
+      lenses: template.lenses,
+      callerService: body.callerService,
+      callerContext: body.callerContext,
+      presenceCheck: true,
+      templateName: template.name,
+      model: template.defaultModel,
+      synthesisStrategy: template.defaultSynthesisStrategy,
+      synthesisModel: template.defaultSynthesisModel,
+      agentTimeoutMs: parseInt(process.env.AGENT_TIMEOUT_MS || '30000', 10),
+    });
+
+    return res.json(result);
+  } catch (error: any) {
+    console.error('[Swarm Invoke Template] Error:', error);
+    return res.status(500).json({ error: 'Template swarm invocation failed', message: error.message });
   }
+});
 
-  return res.status(501).json({
-    error: 'Template-based invocation not yet implemented',
-    message: 'Standard Lens Library arrives in Phase 1',
-    plannedTemplates: [
-      'ideaforge_validation',
-      'contract_review',
-      'creative_variation',
-      'discovery_multilens',
-      'growth_plan',
-      'executive_scout',
-      'sentinel_redteam',
-    ],
-  });
+/**
+ * GET /api/swarm/templates
+ *
+ * List available templates in the Standard Lens Library.
+ */
+router.get('/templates', (_req: Request, res: Response) => {
+  return res.json({ templates: listTemplates() });
 });
 
 /**
  * GET /api/swarm/history/:callerService
  *
- * Recent swarm invocations by a specific service. Transparency layer.
+ * Recent swarm invocations by a specific service.
  */
 router.get('/history/:callerService', async (req: Request, res: Response) => {
   try {
     const pool = getPool();
     const result = await pool.query(
       `SELECT id, task, template_name, lens_count, model, synthesis_strategy,
-              presence_check, started_at, completed_at, status, total_duration_ms
+              presence_check, started_at, completed_at, status, total_duration_ms, total_cost_tokens
        FROM swarm_invocations
        WHERE caller_service = $1
        ORDER BY started_at DESC
@@ -161,7 +224,6 @@ router.get('/history/:callerService', async (req: Request, res: Response) => {
     );
     return res.json({ count: result.rows.length, invocations: result.rows });
   } catch (error: any) {
-    console.error('[Swarm History] Error:', error);
     return res.status(500).json({ error: error.message });
   }
 });
@@ -174,14 +236,10 @@ router.get('/history/:callerService', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const pool = getPool();
-    const invocation = await pool.query(
-      'SELECT * FROM swarm_invocations WHERE id = $1',
-      [req.params.id]
-    );
+    const invocation = await pool.query('SELECT * FROM swarm_invocations WHERE id = $1', [req.params.id]);
     if (invocation.rows.length === 0) {
       return res.status(404).json({ error: 'Swarm not found' });
     }
-
     const signals = await pool.query(
       'SELECT * FROM swarm_signals WHERE swarm_id = $1 ORDER BY created_at',
       [req.params.id]
@@ -190,14 +248,12 @@ router.get('/:id', async (req: Request, res: Response) => {
       'SELECT * FROM swarm_synthesis WHERE swarm_id = $1',
       [req.params.id]
     );
-
     return res.json({
       invocation: invocation.rows[0],
       signals: signals.rows,
       synthesis: synthesis.rows[0] || null,
     });
   } catch (error: any) {
-    console.error('[Swarm Detail] Error:', error);
     return res.status(500).json({ error: error.message });
   }
 });
