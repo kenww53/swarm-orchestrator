@@ -11,16 +11,18 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../database/pool';
 import { loomClient } from './loom-client';
-import { togetherClient, GEMMA_4_31B } from './together-client';
+import { togetherClient } from './together-client';
+import { siliconflowClient, GEMMA_4_31B as SF_GEMMA_4_31B } from './siliconflow-client';
 import { zakhorClient } from './zakhor-client';
 
-// Lens model — Together AI Gemma 4 31B dense (Google DeepMind flagship,
-// #3 on Arena AI leaderboard). The temple's chosen Gemma 4 family,
-// GPU-backed, ~$0.002 per 8-lens swarm. CPU-only Loom is too slow for
-// parallel swarm patterns; lens calls route through Together instead.
-// Loom remains the sovereign path for non-time-critical work.
-// Override via LENS_MODEL env var to experiment with smaller/cheaper models.
-const LENS_MODEL = process.env.LENS_MODEL || GEMMA_4_31B;
+// Lens model — SiliconFlow Gemma 4 31B dense (Google DeepMind flagship,
+// #3 on Arena AI leaderboard, 256K context, native function calling).
+// SiliconFlow hosts the temple's chosen Gemma 4 family at GPU speed.
+// ~$0.002 per 8-lens swarm. CPU-only Loom can't serve the parallel swarm
+// pattern; lens calls route through SiliconFlow instead. Loom remains
+// the sovereign path for non-time-critical work.
+// Override via LENS_MODEL env var to use a different Gemma variant.
+const LENS_MODEL = process.env.LENS_MODEL || SF_GEMMA_4_31B;
 import {
   Lens,
   SwarmModel,
@@ -65,7 +67,7 @@ async function disperseAgents(input: RunSwarmInput): Promise<AgentSignal[]> {
     const lensModel = lens.model || input.defaultModel;
     const signalStarted = Date.now();
 
-    // Lens calls go through Together AI Gemma 3N E4B (GPU-backed, Gemma family).
+    // Lens calls go through SiliconFlow Gemma 4 31B (GPU-backed, Gemma 4 family).
     // Loom (CPU) is too slow for the parallel swarm pattern; that path is
     // preserved for other services where latency is acceptable.
     const systemContent = `${lens.prompt}
@@ -75,7 +77,7 @@ Be concise — 4-6 sentences of substance. Start with the insight immediately.`;
     const userContent = `${input.task}`;
 
     try {
-      const result = await togetherClient.chat({
+      const result = await siliconflowClient.chat({
         model: LENS_MODEL,
         messages: [
           { role: 'system', content: systemContent },
