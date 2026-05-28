@@ -49,7 +49,7 @@ export class LoomClient {
   constructor() {
     this.client = axios.create({
       baseURL: LOOM_URL,
-      timeout: parseInt(process.env.AGENT_TIMEOUT_MS || '30000', 10),
+      timeout: parseInt(process.env.AGENT_TIMEOUT_MS || '180000', 10),
       headers: { 'Content-Type': 'application/json' },
     });
   }

@@ -133,7 +133,7 @@ router.post('/invoke', async (req: Request, res: Response) => {
       model: body.model || 'gemma-e2b',
       synthesisStrategy: body.synthesisStrategy || 'discernment',
       synthesisModel: body.synthesisModel || 'qwen3-235b',
-      agentTimeoutMs: body.timeout || parseInt(process.env.AGENT_TIMEOUT_MS || '30000', 10),
+      agentTimeoutMs: body.timeout || parseInt(process.env.AGENT_TIMEOUT_MS || '180000', 10),
     });
 
     return res.json(result);
@@ -186,7 +186,7 @@ router.post('/invoke-by-template', async (req: Request, res: Response) => {
       model: template.defaultModel,
       synthesisStrategy: template.defaultSynthesisStrategy,
       synthesisModel: template.defaultSynthesisModel,
-      agentTimeoutMs: parseInt(process.env.AGENT_TIMEOUT_MS || '30000', 10),
+      agentTimeoutMs: parseInt(process.env.AGENT_TIMEOUT_MS || '180000', 10),
     });
 
     return res.json(result);
