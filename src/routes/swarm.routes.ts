@@ -11,7 +11,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../database/pool';
 import { runSwarm } from '../services/swarm-engine';
-import { getTemplate, listTemplates } from '../lenses';
+import { getTemplate, listTemplates, getTemplateDetails } from '../lenses';
 import {
   SwarmInvokeRequest,
   SwarmInvokeByTemplateRequest,
@@ -202,7 +202,10 @@ router.post('/invoke-by-template', async (req: Request, res: Response) => {
  * List available templates in the Standard Lens Library.
  */
 router.get('/templates', (_req: Request, res: Response) => {
-  return res.json({ templates: listTemplates() });
+  return res.json({
+    count: listTemplates().length,
+    templates: getTemplateDetails(),
+  });
 });
 
 /**
