@@ -12,17 +12,18 @@ import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../database/pool';
 import { loomClient } from './loom-client';
 import { togetherClient } from './together-client';
-import { siliconflowClient, GEMMA_4_31B as SF_GEMMA_4_31B } from './siliconflow-client';
+import { siliconflowClient, GEMMA_4_26B_A4B as SF_GEMMA_4 } from './siliconflow-client';
 import { zakhorClient } from './zakhor-client';
 
-// Lens model — SiliconFlow Gemma 4 31B dense (Google DeepMind flagship,
-// #3 on Arena AI leaderboard, 256K context, native function calling).
-// SiliconFlow hosts the temple's chosen Gemma 4 family at GPU speed.
-// ~$0.002 per 8-lens swarm. CPU-only Loom can't serve the parallel swarm
-// pattern; lens calls route through SiliconFlow instead. Loom remains
+// Lens model — SiliconFlow Gemma 4 26B-A4B-it (Google DeepMind, MoE variant
+// with 4B active params, GPU-backed at SiliconFlow). Same Gemma 4 family
+// the temple already validated; MoE keeps inference fast for parallel swarms.
+// The dense 31B variant is catalog-listed but not actually serving as of
+// 2026-05-28 — switched to the MoE which serves consistently in ~1.5s.
+// CPU-only Loom can't serve the parallel swarm pattern; Loom remains
 // the sovereign path for non-time-critical work.
-// Override via LENS_MODEL env var to use a different Gemma variant.
-const LENS_MODEL = process.env.LENS_MODEL || SF_GEMMA_4_31B;
+// Override via LENS_MODEL env var to switch Gemma variants.
+const LENS_MODEL = process.env.LENS_MODEL || SF_GEMMA_4;
 import {
   Lens,
   SwarmModel,
