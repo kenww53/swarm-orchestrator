@@ -13,14 +13,28 @@ import axios, { AxiosInstance } from 'axios';
 const SILICONFLOW_URL = 'https://api.siliconflow.com/v1/chat/completions';
 
 // Key pool — accept multiple keys for load distribution and rate-limit resilience.
+// Scans ALL env vars matching SF_API_KEY_<n> or SILICONFLOW_API_KEY<n> patterns,
+// plus the bare SILICONFLOW_API_KEY for legacy single-key setups.
 function gatherKeys(): string[] {
   const pool: string[] = [];
-  for (let i = 1; i <= 20; i++) {
-    const key = process.env[`SILICONFLOW_API_KEY${i}`];
-    if (key && key.trim().length > 0) pool.push(key.trim());
+  const seen = new Set<string>();
+
+  for (const [name, value] of Object.entries(process.env)) {
+    if (!value || value.trim().length === 0) continue;
+    const v = value.trim();
+    // Match SF_API_KEY_N, SF_API_KEYN, SILICONFLOW_API_KEYN, SILICONFLOW_API_KEY_N
+    if (/^(SF|SILICONFLOW)_API_KEY_?\d+$/i.test(name) && !seen.has(v)) {
+      pool.push(v);
+      seen.add(v);
+    }
   }
-  const legacy = process.env.SILICONFLOW_API_KEY;
-  if (legacy && legacy.trim().length > 0 && !pool.includes(legacy)) pool.push(legacy.trim());
+
+  // Legacy single-key fallbacks
+  const legacy = process.env.SILICONFLOW_API_KEY || process.env.SF_API_KEY;
+  if (legacy && legacy.trim().length > 0 && !seen.has(legacy.trim())) {
+    pool.push(legacy.trim());
+  }
+
   return pool;
 }
 
