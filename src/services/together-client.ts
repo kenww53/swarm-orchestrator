@@ -85,7 +85,7 @@ export class TogetherClient {
   private timeoutMs: number;
 
   constructor() {
-    this.timeoutMs = parseInt(process.env.SYNTHESIS_TIMEOUT_MS || '30000', 10);
+    this.timeoutMs = parseInt(process.env.SYNTHESIS_TIMEOUT_MS || '90000', 10);
     if (KEY_POOL.length === 0) {
       console.warn('[Together] No API keys configured — synthesis will fail');
     } else {
