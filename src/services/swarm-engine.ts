@@ -58,11 +58,16 @@ async function disperseAgents(input: RunSwarmInput): Promise<AgentSignal[]> {
     const loomModelId = mapModelToLoom(lensModel);
     const signalStarted = Date.now();
 
-    // Gemma 4 has thinking mode enabled by default. Append /no_think to the
-    // user message (Gemma's reduce-thinking directive) AND instruct in system
-    // prompt. Defensive: also strip any leaked <think>...</think> blocks.
-    const systemContent = `${lens.prompt}\n\nIMPORTANT: Respond directly with your analysis. Do not output thinking, reasoning steps, or <think> tags. Skip the thinking process and give the final answer immediately.`;
-    const userContent = `${input.task}\n\n/no_think`;
+    // CPU inference can't produce long responses fast enough for parallel
+    // swarm patterns. Force brevity: hard cap, strict instruction, no thinking.
+    const systemContent = `${lens.prompt}
+
+CRITICAL OUTPUT REQUIREMENTS:
+- Maximum 4 sentences total. No exceptions.
+- Be direct and concrete. No preamble. No "Here is my analysis..."
+- No thinking, reasoning steps, or <think> tags. Skip thinking, give the answer.
+- Start your response with the substance immediately.`;
+    const userContent = `${input.task}\n\nAnswer in 4 sentences max. /no_think`;
 
     try {
       const result = await loomClient.inference({
@@ -72,8 +77,8 @@ async function disperseAgents(input: RunSwarmInput): Promise<AgentSignal[]> {
           { role: 'system', content: systemContent },
           { role: 'user', content: userContent },
         ],
-        temperature: 0.4,
-        maxTokens: 1024,
+        temperature: 0.3,
+        maxTokens: 256,
       });
 
       const cleanedResponse = stripThinking(result.result);
