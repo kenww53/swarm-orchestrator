@@ -48,7 +48,19 @@ function nextKey(): string | null {
 
 const TOGETHER_URL = 'https://api.together.xyz/v1/chat/completions';
 
+// Synthesis model: Qwen3-235B for deep multi-perspective integration
 const QWEN3_MODEL = 'Qwen/Qwen3-235B-A22B-Instruct-2507-tput';
+
+// Default lens model: Gemma 4 31B dense (Google DeepMind flagship).
+// #3 on Arena AI leaderboard among open models, native function calling,
+// 256K context. Same research foundation as Gemini 3.
+// Pricing: $0.13 in / $0.40 out per 1M tokens (~$0.002 per 8-lens swarm).
+// Dense > MoE for nuanced multi-perspective analytical work.
+export const GEMMA_4_31B = 'google/gemma-4-31B-it';
+
+// Alternative Gemma options (override via LENS_MODEL env)
+export const GEMMA_4_26B_A4B = 'google/gemma-4-26B-A4B-it';  // MoE, cheaper
+export const GEMMA_3N_E4B = 'google/gemma-3n-E4B-it';        // smallest, cheapest
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -60,6 +72,7 @@ export interface TogetherChatRequest {
   temperature?: number;
   max_tokens?: number;
   top_p?: number;
+  model?: string;  // Defaults to Qwen3-235B for synthesis; override for lens calls
 }
 
 export interface TogetherChatResponse {
@@ -105,7 +118,7 @@ export class TogetherClient {
         const res = await axios.post(
           TOGETHER_URL,
           {
-            model: QWEN3_MODEL,
+            model: req.model || QWEN3_MODEL,
             messages: req.messages,
             temperature: req.temperature ?? 0.5,
             max_tokens: req.max_tokens ?? 4000,

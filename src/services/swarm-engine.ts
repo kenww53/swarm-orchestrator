@@ -10,9 +10,17 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../database/pool';
-import { loomClient, mapModelToLoom } from './loom-client';
-import { togetherClient } from './together-client';
+import { loomClient } from './loom-client';
+import { togetherClient, GEMMA_4_31B } from './together-client';
 import { zakhorClient } from './zakhor-client';
+
+// Lens model — Together AI Gemma 4 31B dense (Google DeepMind flagship,
+// #3 on Arena AI leaderboard). The temple's chosen Gemma 4 family,
+// GPU-backed, ~$0.002 per 8-lens swarm. CPU-only Loom is too slow for
+// parallel swarm patterns; lens calls route through Together instead.
+// Loom remains the sovereign path for non-time-critical work.
+// Override via LENS_MODEL env var to experiment with smaller/cheaper models.
+const LENS_MODEL = process.env.LENS_MODEL || GEMMA_4_31B;
 import {
   Lens,
   SwarmModel,
@@ -55,33 +63,31 @@ interface RunSwarmInput {
 async function disperseAgents(input: RunSwarmInput): Promise<AgentSignal[]> {
   const promises = input.lenses.map(async (lens): Promise<AgentSignal> => {
     const lensModel = lens.model || input.defaultModel;
-    const loomModelId = mapModelToLoom(lensModel);
     const signalStarted = Date.now();
 
-    // CPU inference can't produce long responses fast enough for parallel
-    // swarm patterns. Force brevity: hard cap, strict instruction, no thinking.
+    // Lens calls go through Together AI Gemma 3N E4B (GPU-backed, Gemma family).
+    // Loom (CPU) is too slow for the parallel swarm pattern; that path is
+    // preserved for other services where latency is acceptable.
     const systemContent = `${lens.prompt}
 
-CRITICAL OUTPUT REQUIREMENTS:
-- Maximum 4 sentences total. No exceptions.
-- Be direct and concrete. No preamble. No "Here is my analysis..."
-- No thinking, reasoning steps, or <think> tags. Skip thinking, give the answer.
-- Start your response with the substance immediately.`;
-    const userContent = `${input.task}\n\nAnswer in 4 sentences max. /no_think`;
+IMPORTANT: Respond directly with your analysis. No preamble. No <think> tags.
+Be concise — 4-6 sentences of substance. Start with the insight immediately.`;
+    const userContent = `${input.task}`;
 
     try {
-      const result = await loomClient.inference({
-        modelId: loomModelId,
-        service: 'swarm-orchestrator',
+      const result = await togetherClient.chat({
+        model: LENS_MODEL,
         messages: [
           { role: 'system', content: systemContent },
           { role: 'user', content: userContent },
         ],
-        temperature: 0.3,
-        maxTokens: 256,
+        temperature: 0.4,
+        max_tokens: 1024,
       });
 
-      const cleanedResponse = stripThinking(result.result);
+      const cleanedResponse = stripThinking(result.content);
+      const tokensTotal = result.tokensUsed?.total || 0;
+      const callDuration = result.durationMs || (Date.now() - signalStarted);
 
       // Persist signal
       const pool = getPool();
@@ -93,18 +99,18 @@ CRITICAL OUTPUT REQUIREMENTS:
           input.swarmId,
           lens.name,
           lens.prompt,
-          lensModel,
+          LENS_MODEL,
           cleanedResponse,
-          result.tokensUsed?.total || 0,
-          result.durationMs || (Date.now() - signalStarted),
+          tokensTotal,
+          callDuration,
         ]
       );
 
       return {
         lensName: lens.name,
         response: cleanedResponse,
-        tokensUsed: result.tokensUsed?.total || 0,
-        durationMs: result.durationMs || (Date.now() - signalStarted),
+        tokensUsed: tokensTotal,
+        durationMs: callDuration,
         status: 'success',
       };
     } catch (error: any) {
