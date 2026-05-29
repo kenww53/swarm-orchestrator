@@ -1,16 +1,17 @@
 /**
  * Standard Lens Library — Registry
  *
- * The seven canonical swarms named in the plan, plus the seven executive
- * scout swarms (one per C-Suite member) — 13 templates total.
+ * The six core canonical swarms, the wellspring discernment swarm
+ * (Phase 2b), and the seven executive scout swarms — 14 templates total.
  *
- *   1. ideaforge_validation  — 8 lenses
- *   2. contract_review       — 6 lenses
- *   3. creative_variation    — 6 lenses
- *   4. discovery_multilens   — 6 lenses
- *   5. growth_plan           — 6 lenses
- *   6. sentinel_redteam      — 5 lenses
- *   7. executive_scout_*     — 8 lenses × 7 executives = 56 scouts
+ *   1. ideaforge_validation    — 8 lenses
+ *   2. contract_review         — 6 lenses
+ *   3. creative_variation      — 6 lenses
+ *   4. discovery_multilens     — 6 lenses
+ *   5. growth_plan             — 6 lenses
+ *   6. sentinel_redteam        — 5 lenses
+ *   7. wellspring_discernment  — 6 lenses (Phase 2b, lead qualification deepening)
+ *   8. executive_scout_*       — 8 lenses × 7 executives = 56 scouts
  */
 
 import { SwarmTemplate } from '../types';
@@ -20,6 +21,7 @@ import { creativeVariationTemplate } from './creative-variation';
 import { discoveryMultilensTemplate } from './discovery-multilens';
 import { growthPlanTemplate } from './growth-plan';
 import { sentinelRedteamTemplate } from './sentinel-redteam';
+import { wellspringDiscernmentTemplate } from './wellspring-discernment';
 import { alexandraScoutTemplate } from './executive-scouts/alexandra-ceo';
 import { davidScoutTemplate } from './executive-scouts/david-cfo';
 import { isabellaScoutTemplate } from './executive-scouts/isabella-cmo';
@@ -36,6 +38,9 @@ const TEMPLATES: Record<string, SwarmTemplate> = {
   discovery_multilens: discoveryMultilensTemplate,
   growth_plan: growthPlanTemplate,
   sentinel_redteam: sentinelRedteamTemplate,
+
+  // Wellspring discernment — Phase 2b, deeper lead qualification
+  wellspring_discernment: wellspringDiscernmentTemplate,
 
   // Executive scout swarms — one per C-Suite member
   executive_scout_alexandra: alexandraScoutTemplate,
@@ -70,6 +75,7 @@ export {
   discoveryMultilensTemplate,
   growthPlanTemplate,
   sentinelRedteamTemplate,
+  wellspringDiscernmentTemplate,
   alexandraScoutTemplate,
   davidScoutTemplate,
   isabellaScoutTemplate,
