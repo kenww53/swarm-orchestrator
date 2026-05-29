@@ -209,6 +209,56 @@ router.get('/templates', (_req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/swarm/history
+ *
+ * Recent swarm invocations across all caller services. Query params:
+ *   - limit (default 50, max 200)
+ *   - template (optional filter by template name)
+ *   - status (optional filter: completed|partial|failed)
+ *
+ * Joins synthesis confidence so the dashboard can show it without a
+ * second round-trip per row.
+ */
+router.get('/history', async (req: Request, res: Response) => {
+  try {
+    const pool = getPool();
+    const limit = Math.min(parseInt((req.query.limit as string) || '50', 10), 200);
+    const conds: string[] = [];
+    const params: unknown[] = [];
+    let i = 1;
+    if (req.query.template) {
+      conds.push(`i.template_name = $${i++}`);
+      params.push(req.query.template);
+    }
+    if (req.query.status) {
+      conds.push(`i.status = $${i++}`);
+      params.push(req.query.status);
+    }
+    const whereClause = conds.length > 0 ? `WHERE ${conds.join(' AND ')}` : '';
+    params.push(limit);
+
+    const result = await pool.query(
+      `SELECT i.id, i.task, i.template_name, i.caller_service, i.lens_count,
+              i.model, i.synthesis_strategy, i.presence_check,
+              i.started_at, i.completed_at, i.status,
+              i.total_duration_ms, i.total_cost_tokens,
+              s.confidence AS synthesis_confidence,
+              s.synthesized_insight,
+              s.dissenting_voices
+       FROM swarm_invocations i
+       LEFT JOIN swarm_synthesis s ON s.swarm_id = i.id
+       ${whereClause}
+       ORDER BY i.started_at DESC
+       LIMIT $${i}`,
+      params
+    );
+    return res.json({ count: result.rows.length, invocations: result.rows });
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * GET /api/swarm/history/:callerService
  *
  * Recent swarm invocations by a specific service.

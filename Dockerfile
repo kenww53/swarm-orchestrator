@@ -7,6 +7,7 @@ RUN npm ci --omit=dev=false
 
 COPY tsconfig.json ./
 COPY src ./src
+COPY public ./public
 
 RUN npm run build
 

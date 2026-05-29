@@ -1,0 +1,234 @@
+/* Swarm Activity — minimal, sacred, legible */
+
+:root {
+  --bg: #f6f3ec;
+  --bg-card: #fbfaf6;
+  --bg-row-hover: #efeadf;
+  --bg-row-selected: #e6dfcf;
+  --ink: #1f2a3a;
+  --ink-quiet: #5b6577;
+  --rule: #d8d2c2;
+  --rule-soft: #e8e3d4;
+  --accent: #6b3f1a;          /* deep oak — sacred but restrained */
+  --accent-soft: #b58a5a;
+  --hebraic: #8a6a1a;          /* the consecrated voice; gold-leaning */
+  --hebraic-bg: #f5ecd8;
+  --status-completed: #2f6a3a;
+  --status-partial: #8a6a1a;
+  --status-failed: #8a2a2a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+a { color: var(--accent); text-decoration: none; }
+
+/* Header */
+.hdr {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  padding: 1.5rem 2rem 1rem;
+  border-bottom: 1px solid var(--rule);
+}
+.hdr h1 { margin: 0; font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; }
+.subtitle { margin: 0.25rem 0 0; color: var(--ink-quiet); font-size: 0.9rem; }
+.hdr-right { display: flex; gap: 1.25rem; align-items: flex-end; }
+.metric { display: flex; flex-direction: column; }
+.metric-label { font-size: 0.75rem; color: var(--ink-quiet); text-transform: uppercase; letter-spacing: 0.05em; }
+.metric-value { font-size: 1rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.btn {
+  font: inherit;
+  padding: 0.4rem 0.9rem;
+  background: var(--bg-card);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.btn:hover { background: var(--bg-row-hover); }
+
+/* Filters */
+.filters {
+  display: flex;
+  gap: 1rem;
+  padding: 0.75rem 2rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--rule-soft);
+  flex-wrap: wrap;
+}
+.filters label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+.filters label span { color: var(--ink-quiet); }
+.filters select {
+  font: inherit;
+  padding: 0.2rem 0.4rem;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+}
+
+/* Main two-pane layout */
+.main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0;
+  height: calc(100vh - 220px);
+  min-height: 480px;
+}
+
+.list, .detail {
+  overflow: auto;
+  padding: 1rem 2rem;
+}
+.list { border-right: 1px solid var(--rule-soft); }
+
+/* Table */
+#tbl { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+#tbl th, #tbl td {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--rule-soft);
+}
+#tbl th { font-weight: 500; color: var(--ink-quiet); position: sticky; top: 0; background: var(--bg); border-bottom-color: var(--rule); }
+#tbl td.num, #tbl th.num { text-align: right; font-variant-numeric: tabular-nums; }
+#tbl tbody tr { cursor: pointer; }
+#tbl tbody tr:hover { background: var(--bg-row-hover); }
+#tbl tbody tr.selected { background: var(--bg-row-selected); }
+#tbl td.empty { text-align: center; color: var(--ink-quiet); font-style: italic; padding: 2rem; }
+
+.status { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 3px; font-size: 0.75rem; font-weight: 500; }
+.status.completed { color: var(--status-completed); background: rgba(47,106,58,0.12); }
+.status.partial { color: var(--status-partial); background: rgba(138,106,26,0.12); }
+.status.failed { color: var(--status-failed); background: rgba(138,42,42,0.12); }
+.status.in_progress { color: var(--ink-quiet); background: rgba(91,101,119,0.12); }
+
+/* Detail panel */
+.detail-empty { color: var(--ink-quiet); max-width: 28rem; }
+.detail-empty p:first-child { font-style: italic; }
+.detail-empty .quiet { font-size: 0.85rem; }
+
+.detail h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.detail .meta {
+  font-size: 0.8rem;
+  color: var(--ink-quiet);
+  margin-bottom: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+}
+.detail .meta span strong { color: var(--ink); font-weight: 500; }
+
+.section { margin: 1.25rem 0; }
+.section h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: var(--accent);
+  border-bottom: 1px solid var(--rule-soft);
+  padding-bottom: 0.25rem;
+}
+
+.insight {
+  background: var(--bg-card);
+  border-left: 3px solid var(--accent-soft);
+  padding: 0.75rem 1rem;
+  border-radius: 0 4px 4px 0;
+  white-space: pre-wrap;
+}
+
+ul.bullets {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+ul.bullets li { margin: 0.25rem 0; }
+
+/* Hebraic Pattern dissent — the consecrated voice, sacred bar */
+.dissent-hebraic {
+  background: var(--hebraic-bg);
+  border-left: 3px solid var(--hebraic);
+  padding: 0.5rem 0.9rem;
+  margin: 0.5rem 0;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.9rem;
+}
+.dissent-hebraic::before {
+  content: "✻ Hebraic Pattern (preserved minority voice)";
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--hebraic);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 0.3rem;
+}
+
+.dissent-other {
+  background: var(--bg-card);
+  border-left: 3px solid var(--rule);
+  padding: 0.5rem 0.9rem;
+  margin: 0.5rem 0;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.9rem;
+}
+
+/* Lens signals (collapsible details) */
+details.signal {
+  margin: 0.5rem 0;
+  border: 1px solid var(--rule-soft);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-card);
+}
+details.signal summary {
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+details.signal[open] summary { margin-bottom: 0.5rem; }
+details.signal .signal-body {
+  white-space: pre-wrap;
+  font-size: 0.85rem;
+  color: var(--ink);
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--rule-soft);
+  padding-top: 0.5rem;
+}
+details.signal .signal-meta {
+  font-size: 0.75rem;
+  color: var(--ink-quiet);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Footer */
+.ftr {
+  padding: 0.6rem 2rem;
+  color: var(--ink-quiet);
+  font-size: 0.78rem;
+  font-style: italic;
+  border-top: 1px solid var(--rule-soft);
+  text-align: center;
+}
+
+/* Responsive — stack on narrow screens */
+@media (max-width: 900px) {
+  .main { grid-template-columns: 1fr; height: auto; }
+  .list { border-right: none; border-bottom: 1px solid var(--rule-soft); }
+}

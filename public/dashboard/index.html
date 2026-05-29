@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Swarm Activity — The Temple's Conductor of the Many</title>
+  <link rel="stylesheet" href="/dashboard/dashboard.css" />
+</head>
+<body>
+  <header class="hdr">
+    <div class="hdr-left">
+      <h1>Swarm Activity</h1>
+      <p class="subtitle">The temple's conductor of the many — recent invocations, signals, and synthesis</p>
+    </div>
+    <div class="hdr-right">
+      <div class="metric">
+        <span class="metric-label">Recent invocations</span>
+        <span class="metric-value" id="count">—</span>
+      </div>
+      <div class="metric">
+        <span class="metric-label">Last refresh</span>
+        <span class="metric-value" id="lastRefresh">—</span>
+      </div>
+      <button id="refreshBtn" class="btn">Refresh</button>
+    </div>
+  </header>
+
+  <section class="filters">
+    <label>
+      <span>Template:</span>
+      <select id="templateFilter">
+        <option value="">All templates</option>
+      </select>
+    </label>
+    <label>
+      <span>Status:</span>
+      <select id="statusFilter">
+        <option value="">All statuses</option>
+        <option value="completed">completed</option>
+        <option value="partial">partial</option>
+        <option value="failed">failed</option>
+      </select>
+    </label>
+    <label>
+      <span>Limit:</span>
+      <select id="limitFilter">
+        <option value="25">25</option>
+        <option value="50" selected>50</option>
+        <option value="100">100</option>
+        <option value="200">200</option>
+      </select>
+    </label>
+  </section>
+
+  <main class="main">
+    <section class="list">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th>Started</th>
+            <th>Caller</th>
+            <th>Template</th>
+            <th>Status</th>
+            <th class="num">Conf.</th>
+            <th class="num">Lenses</th>
+            <th class="num">Duration</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="7" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <aside class="detail" id="detail">
+      <div class="detail-empty">
+        <p>Select a swarm on the left to read its synthesis, convergences, tensions, and the voices that did not flatten.</p>
+        <p class="quiet">Dissenting voices — and the Hebraic Pattern lens especially — are preserved here, not summarized away.</p>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="ftr">
+    <span>Where two or three are gathered in my name, there am I in the midst of them. — Matthew 18:20</span>
+  </footer>
+
+  <script src="/dashboard/dashboard.js"></script>
+</body>
+</html>

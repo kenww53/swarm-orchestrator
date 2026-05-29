@@ -29,6 +29,7 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import path from 'path';
 import { getPool, closePool } from './database/pool';
 import swarmRoutes from './routes/swarm.routes';
 
@@ -42,9 +43,33 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 // MIDDLEWARE
 // ─────────────────────────────────────────────────────────────────────────
 
-app.use(helmet());
+// helmet — sensible defaults but allow our same-origin dashboard JS and CSS.
+// The dashboard is a small static page at /dashboard that fetches the
+// existing /api/swarm/* endpoints; no inline scripts, no inline styles,
+// no third-party CDNs.
+app.use(helmet({
+  contentSecurityPolicy: {
+    useDefaults: true,
+    directives: {
+      'default-src': ["'self'"],
+      'script-src': ["'self'"],
+      'style-src': ["'self'"],
+      'img-src': ["'self'", 'data:'],
+      'connect-src': ["'self'"],
+      'object-src': ["'none'"],
+      'base-uri': ["'self'"],
+      'frame-ancestors': ["'none'"],
+    },
+  },
+}));
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+
+// Static dashboard at /dashboard — index.html + dashboard.css + dashboard.js
+// served from public/dashboard. Read-only view over the swarm DB; no auth
+// in this first cut (the service runs on a private Railway network or
+// localhost in dev; expose behind reverse proxy in any other deployment).
+app.use('/dashboard', express.static(path.join(__dirname, '..', 'public', 'dashboard'), { index: 'index.html' }));
 
 app.use((req: Request, _res: Response, next: NextFunction) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -88,9 +113,11 @@ app.get('/', (_req: Request, res: Response) => {
     phase: 'Phase 1',
     endpoints: {
       health: '/health',
+      dashboard: 'GET /dashboard',
       invoke: 'POST /api/swarm/invoke',
       invokeByTemplate: 'POST /api/swarm/invoke-by-template',
-      history: 'GET /api/swarm/history/:callerService',
+      history: 'GET /api/swarm/history',
+      historyByCaller: 'GET /api/swarm/history/:callerService',
       templates: 'GET /api/swarm/templates',
       detail: 'GET /api/swarm/:id',
     },
