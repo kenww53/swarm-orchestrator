@@ -34,6 +34,7 @@ import { discoveryMultilensTemplate } from './discovery-multilens';
 import { growthPlanTemplate } from './growth-plan';
 import { sentinelRedteamTemplate } from './sentinel-redteam';
 import { wellspringDiscernmentTemplate } from './wellspring-discernment';
+import { marketingReviewTemplate } from './marketing-review';
 import { alexandraScoutTemplate } from './executive-scouts/alexandra-ceo';
 import { davidScoutTemplate } from './executive-scouts/david-cfo';
 import { isabellaScoutTemplate } from './executive-scouts/isabella-cmo';
@@ -58,6 +59,9 @@ const TEMPLATES: Record<string, SwarmTemplate> = {
 
   // Wellspring discernment — Phase 2b, deeper lead qualification
   wellspring_discernment: wellspringDiscernmentTemplate,
+
+  // Marketing review — pre-launch campaign depth alongside Kohelet's binary gate
+  marketing_review: marketingReviewTemplate,
 
   // Executive scout swarms — one per C-Suite member
   executive_scout_alexandra: alexandraScoutTemplate,
@@ -96,6 +100,7 @@ export {
   growthPlanTemplate,
   sentinelRedteamTemplate,
   wellspringDiscernmentTemplate,
+  marketingReviewTemplate,
   alexandraScoutTemplate,
   davidScoutTemplate,
   isabellaScoutTemplate,
