@@ -40,9 +40,15 @@ const DEEPINFRA_URL = process.env.SI_JUDGE_URL
   ? `${process.env.SI_JUDGE_URL}/chat/completions`
   : 'https://api.deepinfra.com/v1/openai/chat/completions';
 
-// Synthesis model: Nemotron-120B Super for deep multi-perspective integration.
-const SYNTHESIS_MODEL =
-  process.env.SWARM_SYNTHESIS_MODEL || 'nvidia/NVIDIA-Nemotron-3-Super-120B-A12B';
+// Synthesis models: Qwen3-235B-Instruct primary (cheap, clean), Nemotron-120B fallback.
+// Together is deprecating Qwen, so Nemotron is the safety net. Comma-separated override.
+const SYNTHESIS_MODELS = (
+  process.env.SWARM_SYNTHESIS_MODEL ||
+  'Qwen/Qwen3-235B-A22B-Instruct-2507,nvidia/NVIDIA-Nemotron-3-Super-120B-A12B'
+)
+  .split(',')
+  .map((m) => m.trim())
+  .filter(Boolean);
 
 // Legacy lens-model constants (kept for imports; lenses now run via SiliconFlow / Loom).
 export const GEMMA_4_31B = 'google/gemma-4-31B-it';
@@ -107,67 +113,72 @@ export class TogetherClient {
       throw new Error('No DI_API_KEY configured — synthesis cannot run');
     }
 
-    const model = req.model || SYNTHESIS_MODEL;
-    const messages = /nemotron/i.test(model) ? withThinkingOff(req.messages) : req.messages;
-
+    // Primary Qwen-Instruct (cheap, clean); fallback Nemotron-120B. req.model overrides both.
+    const models = req.model ? [req.model] : SYNTHESIS_MODELS;
     const startedAt = Date.now();
     const maxAttempts = Math.min(3, KEY_POOL.length);
     let lastError: any;
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const key = nextKey();
-      if (!key) break;
+    for (const model of models) {
+      const messages = /nemotron/i.test(model) ? withThinkingOff(req.messages) : req.messages;
+      let hardFail = false;
 
-      try {
-        const res = await axios.post(
-          DEEPINFRA_URL,
-          {
-            model,
-            messages,
-            temperature: req.temperature ?? 0.5,
-            max_tokens: req.max_tokens ?? 4000,
-            top_p: req.top_p ?? 0.9,
-          },
-          {
-            timeout: this.timeoutMs,
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${key}`,
+      for (let attempt = 0; attempt < maxAttempts && !hardFail; attempt++) {
+        const key = nextKey();
+        if (!key) break;
+
+        try {
+          const res = await axios.post(
+            DEEPINFRA_URL,
+            {
+              model,
+              messages,
+              temperature: req.temperature ?? 0.5,
+              max_tokens: req.max_tokens ?? 4000,
+              top_p: req.top_p ?? 0.9,
             },
+            {
+              timeout: this.timeoutMs,
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${key}`,
+              },
+            }
+          );
+
+          const choice = res.data.choices?.[0];
+          const content = choice?.message?.content || '';
+          const usage = res.data.usage || {};
+
+          return {
+            content,
+            tokensUsed: {
+              input: usage.prompt_tokens || 0,
+              output: usage.completion_tokens || 0,
+              total: usage.total_tokens || 0,
+            },
+            durationMs: Date.now() - startedAt,
+          };
+        } catch (error: any) {
+          lastError = error;
+          const status = error.response?.status;
+          if (status === 401) {
+            console.error(`[Synthesis] Key rejected (401); rotating`);
+            continue;
           }
-        );
-
-        const choice = res.data.choices?.[0];
-        const content = choice?.message?.content || '';
-        const usage = res.data.usage || {};
-
-        return {
-          content,
-          tokensUsed: {
-            input: usage.prompt_tokens || 0,
-            output: usage.completion_tokens || 0,
-            total: usage.total_tokens || 0,
-          },
-          durationMs: Date.now() - startedAt,
-        };
-      } catch (error: any) {
-        lastError = error;
-        const status = error.response?.status;
-        // Retry on rate-limit (429) or transient server errors. Fail fast on auth (401/400).
-        if (status === 401 || status === 400) {
-          console.error(`[Synthesis] Key rejected (${status}); rotating`);
-          continue;
+          if (status === 429 || status === 502 || status === 503 || status === 504) {
+            console.warn(`[Synthesis] Transient error ${status} on attempt ${attempt + 1}; rotating key`);
+            await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+            continue;
+          }
+          // Hard error (e.g. 400/404 — model deprecated/removed): fail over to the next model.
+          console.warn(`[Synthesis] ${model} hard error ${status ?? '?'}; failing over to next candidate`);
+          hardFail = true;
         }
-        if (status === 429 || status === 502 || status === 503 || status === 504) {
-          console.warn(`[Synthesis] Transient error ${status} on attempt ${attempt + 1}; rotating key`);
-          await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
-          continue;
-        }
-        throw error; // Unknown error — propagate
       }
     }
 
-    throw lastError || new Error('All DeepInfra key attempts failed');
+    throw lastError || new Error('All synthesis candidates failed');
   }
 }
 
