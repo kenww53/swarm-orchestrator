@@ -13,7 +13,7 @@
  * The lenses run on SiliconFlow / Loom's local Gemma (cheap, parallel, sovereign).
  */
 
-import axios, { AxiosInstance } from 'axios';
+import axios from 'axios';
 
 /**
  * Key pool — DeepInfra DI_API_KEY_# (case-insensitive), round-robined for resilience.
