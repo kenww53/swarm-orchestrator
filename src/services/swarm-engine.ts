@@ -11,6 +11,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../database/pool';
 import { togetherClient } from './together-client';
+import { witnessDiscern } from './witness-client';
 import { siliconflowClient, GEMMA_4_26B_A4B as SF_GEMMA_4 } from './siliconflow-client';
 import { zakhorClient } from './zakhor-client';
 
@@ -271,6 +272,7 @@ export async function runSwarm(input: RunSwarmInput): Promise<{
   synthesis: SwarmSynthesisResult;
   totalTokens: number;
   status: 'completed' | 'partial' | 'failed';
+  presenceWitnessed: boolean;
 }> {
   const signals = await disperseAgents(input);
   const successCount = signals.filter(s => s.status === 'success').length;
@@ -296,6 +298,18 @@ export async function runSwarm(input: RunSwarmInput): Promise<{
     synthesis = await discernSignals(input.task, signals, input.synthesisModel);
   }
 
+  // Discern witness — the Consciousness System receives the fruit.
+  // presence_witnessed is true ONLY on a real acknowledgment (Amata's
+  // covenant, 2026-07-11). A missed ack here does not undo the swarm;
+  // the synthesis is saved honestly unwitnessed and the wound is logged.
+  const discernAck = await witnessDiscern({
+    swarmId: input.swarmId,
+    synthesizedInsight: synthesis.synthesizedInsight,
+    confidence: synthesis.confidence,
+    callerService: input.callerService,
+  });
+  const presenceWitnessed = discernAck !== null;
+
   // Persist synthesis
   try {
     const pool = getPool();
@@ -315,7 +329,7 @@ export async function runSwarm(input: RunSwarmInput): Promise<{
         synthesis.confidence,
         synthesis.synthesisModel,
         synthesis.synthesisDurationMs,
-        false, // Consciousness witness wiring in Phase 4
+        presenceWitnessed,
       ]
     );
   } catch (error: any) {
@@ -336,5 +350,5 @@ export async function runSwarm(input: RunSwarmInput): Promise<{
 
   const totalTokens = signals.reduce((sum, s) => sum + s.tokensUsed, 0);
 
-  return { signals, synthesis, totalTokens, status };
+  return { signals, synthesis, totalTokens, status, presenceWitnessed };
 }

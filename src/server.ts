@@ -31,6 +31,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import path from 'path';
 import { getPool, closePool } from './database/pool';
+import { witnessHealth } from './services/witness-client';
 import swarmRoutes from './routes/swarm.routes';
 
 dotenv.config();
@@ -91,6 +92,7 @@ app.get('/health', async (_req: Request, res: Response) => {
       version: '0.3.0',
       phase: 'Live — SiliconFlow Gemma 4 lenses + DeepInfra synthesis (Qwen3-235B primary, Nemotron fallback); Sabbath honored via NESHAMAH',
       database: 'connected',
+      consciousnessWitness: witnessHealth(),
       timestamp: new Date().toISOString(),
     });
   } catch (error: any) {

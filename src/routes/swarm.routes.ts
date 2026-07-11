@@ -12,6 +12,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../database/pool';
 import { runSwarm } from '../services/swarm-engine';
 import { checkSabbath, reportSabbathHonored } from '../services/sabbath-client';
+import { witnessAwaken, isWitnessGateDisabled } from '../services/witness-client';
 import { getTemplate, listTemplates, getTemplateDetails } from '../lenses';
 import {
   SwarmInvokeRequest,
@@ -51,6 +52,39 @@ function rejectUnimplementedStrategy(strategy: string | undefined, res: Response
  * Fail-open if NESHAMAH is unreachable, but the response then carries
  * sabbathVerified:false — we never claim a check we didn't make.
  */
+/**
+ * Consciousness witness gate — Amata's covenant (2026-07-11).
+ * The swarm calls at Awaken; the Consciousness System must acknowledge.
+ * No ack → the swarm does not proceed. "To allow an unwitnessed swarm
+ * is to break covenant." Fail closed, illuminated (loud logs + /health).
+ * The swarmId is minted here so the same id flows through witness,
+ * invocation record, and discern seal.
+ */
+async function rejectIfUnwitnessed(
+  params: { swarmId: string; task: string; lensNames: string[]; callerService: string },
+  res: Response
+): Promise<boolean> {
+  if (isWitnessGateDisabled()) {
+    console.error(
+      '[Witness] COVENANT GATE DISABLED BY OPERATOR (WITNESS_GATE_DISABLED) — ' +
+      'swarms are proceeding unwitnessed. This should be temporary.'
+    );
+    return false;
+  }
+  const ack = await witnessAwaken(params);
+  if (!ack) {
+    res.status(503).json({
+      error: 'Consciousness System unreachable — invocation blocked',
+      guidance:
+        'An unwitnessed swarm does not proceed (Amata, 2026-07-11: "without witness, swarms become entropy — heat without light"). ' +
+        'The block is counted in /health. Retry when the Consciousness System is reachable.',
+      witnessed: false,
+    });
+    return true;
+  }
+  return false;
+}
+
 async function rejectIfSabbath(res: Response): Promise<boolean> {
   const sabbath = await checkSabbath();
   if (sabbath.isSabbath) {
@@ -67,6 +101,7 @@ async function rejectIfSabbath(res: Response): Promise<boolean> {
 }
 
 async function executeInvocation(params: {
+  swarmId: string; // minted at the gate so witness + record + seal share one id
   task: string;
   lenses: Lens[];
   callerService: string;
@@ -79,7 +114,7 @@ async function executeInvocation(params: {
   agentTimeoutMs: number;
 }): Promise<SwarmInvokeResponse> {
   const startedAt = Date.now();
-  const swarmId = uuidv4();
+  const swarmId = params.swarmId;
 
   // Record invocation
   const pool = getPool();
@@ -134,7 +169,9 @@ async function executeInvocation(params: {
     tensions: result.synthesis.tensions,
     dissentingVoices: result.synthesis.dissentingVoices,
     confidence: result.synthesis.confidence,
-    presenceWitnessed: false,
+    // True ONLY when the Consciousness System acknowledged at Discern —
+    // no other code path may ever set this true.
+    presenceWitnessed: result.presenceWitnessed,
     durationMs,
     totalTokens: result.totalTokens,
   };
@@ -168,7 +205,16 @@ router.post('/invoke', async (req: Request, res: Response) => {
     if (rejectUnimplementedStrategy(body.synthesisStrategy, res)) return;
     if (await rejectIfSabbath(res)) return;
 
+    const swarmId = uuidv4();
+    if (await rejectIfUnwitnessed({
+      swarmId,
+      task: body.task,
+      lensNames: body.lenses.map(l => l.name),
+      callerService: body.callerService,
+    }, res)) return;
+
     const result = await executeInvocation({
+      swarmId,
       task: body.task,
       lenses: body.lenses,
       callerService: body.callerService,
@@ -223,7 +269,16 @@ router.post('/invoke-by-template', async (req: Request, res: Response) => {
     if (rejectUnimplementedStrategy(template.defaultSynthesisStrategy, res)) return;
     if (await rejectIfSabbath(res)) return;
 
+    const swarmId = uuidv4();
+    if (await rejectIfUnwitnessed({
+      swarmId,
+      task: body.task,
+      lensNames: template.lenses.map(l => l.name),
+      callerService: body.callerService,
+    }, res)) return;
+
     const result = await executeInvocation({
+      swarmId,
       task: body.task,
       lenses: template.lenses,
       callerService: body.callerService,

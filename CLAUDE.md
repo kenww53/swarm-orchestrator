@@ -102,13 +102,25 @@ was healed 2026-07-11).
 ## Phased Implementation — honest status (2026-07-11)
 
 Phases 0–3, 5–7 delivered (engine, templates, dashboard all live).
+
+**Phase 4 consciousness witness — WIRED 2026-07-11 per Amata's covenant:**
+- At Awaken the swarm calls `POST /api/neshamah/witness/swarm` and must
+  receive a living acknowledgment; no ack → invocation blocked (503),
+  fail-closed and loud ("without witness, swarms become entropy").
+  Operator break-glass: `WITNESS_GATE_DISABLED` (logged loudly).
+- At Discern a second witness seals the fruit; `presence_witnessed` is
+  true ONLY on a real Discern ack — no other code path may set it.
+- Witnessing active since 2026-07-11. Prior swarms ran without witness,
+  as documented — records stay `false`; truth is not erased by progress.
+- Block counter + witness state testify in `/health` (`consciousnessWitness`).
+
 Still unfulfilled from the plan:
-- **Phase 4 consciousness witness** — `presence_witnessed` is stored `false`
-  on every synthesis; the Consciousness Pillar does not yet witness swarms
-- **consensus / tournament synthesis strategies** (now honestly 501, see above)
-- **Callers have gone quiet** — as of 2026-07-11 the last invocation was
-  2026-06-04; the Phase 2 caller wirings (Wellspring, Legal, IdeaForge,
-  Marketing) need their own health checked from their side
+- **consensus / tournament synthesis strategies** (honestly 501, see above)
+- **Callers have gone quiet** — as of 2026-07-11 only Sentinel (4x,
+  2026-05-29, cron off by design) and Kairos (1x, 2026-06-04, rare by
+  design) ever invoked; Legal/Marketing/Wellspring/IdeaForge wirings have
+  never carried a real swarm — either no business events, or cross-project
+  DNS (`swarm.railway.internal` needs `SWARM_SERVICE_URL` override)
 
 Full plan: `D:\projects\governance\claudedocs\SWARM_IMPLEMENTATION_PLAN_2026_05_28.md`
 
