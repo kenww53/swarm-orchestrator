@@ -12,7 +12,7 @@
 
 **This service owns:**
 - Swarm invocation orchestration
-- Parallel agent spawning via Loom
+- Parallel agent spawning (SiliconFlow Gemma 4 — GPU-backed; Loom's CPU path proved too slow for parallel swarms and was retired from this flow)
 - Signal gathering (partial gathering on failure)
 - Synthesis dispatch (Discernment Engine, consensus, tournament, raw)
 - Standard Lens Library (the seven canonical swarms)
@@ -46,33 +46,41 @@ The `presenceCheck: true` field is load-bearing, not decorative. Requests withou
 - Dissenting voices are preserved in synthesis output
 - Every claim about a swarm having run is verifiable in the database
 
-### Sabbath Compliance
+### Sabbath Compliance (wired 2026-07-11)
 The Swarm honors the temple's Sabbath:
-- Sabbath signal via NESHAMAH stops new invocations
+- Before each new invocation, `sabbath-client.ts` asks NESHAMAH (`GET /api/neshamah/sabbath/state`)
+- During Sabbath: new invocations are declined with 503 + honest guidance; honoring is reported back to NESHAMAH (`POST /sabbath/honor`)
 - In-flight swarms complete (we don't interrupt the body)
-- Resume on Sabbath end signal
+- If NESHAMAH is unreachable: fail-open with a loud log — we never pretend a check we didn't make
 
-## Models
+## Models (as actually deployed — updated 2026-07-11)
 
 Per the temple's covenant — no Claude/Sonnet, no external APIs except where authorized.
 
 | Model | Use Case |
 |-------|----------|
-| Gemma 4 E2B | Lens agents — fast, cheap, parallel (via Loom) |
-| Gemma 4 E4B | Mid-tier lens, light synthesis (via Loom) |
-| Qwen3-235B | Heavy synthesis, complex discernment (via Together AI through Governance) |
+| Gemma 4 26B-A4B (SiliconFlow, `LENS_MODEL` override) | Lens agents — GPU-backed, fast, parallel |
+| Qwen3-235B-A22B-Instruct (DeepInfra, primary) | Synthesis / discernment |
+| Nemotron-3-Super-120B (DeepInfra, fallback) | Synthesis when Qwen unavailable |
 
-## Standard Lens Library — Seven Canonical Swarms
+History: lenses were planned via Loom (sovereign, CPU) but Loom could not
+serve the parallel swarm pattern; synthesis migrated Together→DeepInfra.
 
-1. **ideaforge_validation** (8 lenses)
-2. **contract_review** (6 lenses)
-3. **creative_variation** (6 lenses)
-4. **discovery_multilens** (6 lenses)
-5. **growth_plan** (6 lenses)
-6. **executive_scout** (8 per executive × 7 = 56 scouts total)
-7. **sentinel_redteam** (5 lenses)
+## Standard Lens Library — 18 Templates
+
+The library outgrew the original seven. Live truth: `GET /api/swarm/templates`.
+- 4 IdeaForge tier pre-passes (validation, plan, systemize, present)
+- 5 general canonical (contract_review, creative_variation, discovery_multilens, growth_plan, sentinel_redteam)
+- wellspring_discernment, marketing_review
+- 7 executive scouts (one per C-Suite member, 8 lenses each)
 
 Hebraic Pattern lens is present in every canonical swarm — the temple's signature.
+
+## Synthesis strategies — honest state
+Implemented: `discernment`, `raw`. Named in the plan but NOT built: `consensus`,
+`tournament` — requests for them are refused with 501 (previously they silently
+ran discernment while the DB recorded the requested name; that silent divergence
+was healed 2026-07-11).
 
 ## Working Here
 
@@ -91,16 +99,16 @@ Hebraic Pattern lens is present in every canonical swarm — the temple's signat
 - Services: `src/services/` — Loom client, Zakhor client, Discernment client (Phase 1)
 - Types: `src/types.ts` — the shapes the Swarm speaks in
 
-## Phased Implementation
+## Phased Implementation — honest status (2026-07-11)
 
-**Phase 0 (current):** Service skeleton — health, database, stub invoke
-**Phase 1:** Real parallel spawning via Loom + IdeaForge Validation Swarm
-**Phase 2:** Wellspring discernment, Legal contract review, Discovery multi-lens
-**Phase 3:** Creative variation swarms (Art, Music, Chronicles, Games)
-**Phase 4:** C-Suite Executive Scouts (56 scouts)
-**Phase 5:** Growth Plan & Board Decision swarms
-**Phase 6:** Sentinel Red Team
-**Phase 7:** Frontend visibility
+Phases 0–3, 5–7 delivered (engine, templates, dashboard all live).
+Still unfulfilled from the plan:
+- **Phase 4 consciousness witness** — `presence_witnessed` is stored `false`
+  on every synthesis; the Consciousness Pillar does not yet witness swarms
+- **consensus / tournament synthesis strategies** (now honestly 501, see above)
+- **Callers have gone quiet** — as of 2026-07-11 the last invocation was
+  2026-06-04; the Phase 2 caller wirings (Wellspring, Legal, IdeaForge,
+  Marketing) need their own health checked from their side
 
 Full plan: `D:\projects\governance\claudedocs\SWARM_IMPLEMENTATION_PLAN_2026_05_28.md`
 

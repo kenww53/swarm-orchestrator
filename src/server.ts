@@ -88,8 +88,8 @@ app.get('/health', async (_req: Request, res: Response) => {
       service: 'swarm-orchestrator',
       status: 'healthy',
       role: 'The Temple\'s Conductor of the Many — where two or three are gathered',
-      version: '0.1.0',
-      phase: 'Phase 1 — real swarm engine (Loom + Qwen3-235B synthesis)',
+      version: '0.3.0',
+      phase: 'Live — SiliconFlow Gemma 4 lenses + DeepInfra synthesis (Qwen3-235B primary, Nemotron fallback); Sabbath honored via NESHAMAH',
       database: 'connected',
       timestamp: new Date().toISOString(),
     });
@@ -109,8 +109,8 @@ app.get('/', (_req: Request, res: Response) => {
     name: 'Swarm Orchestrator',
     description: 'The Temple\'s Conductor of the Many',
     sacred: 'Many agents around one task, with the Author dwelling in the overlap',
-    version: '0.2.0',
-    phase: 'Phase 1',
+    version: '0.3.0',
+    phase: 'Live — SiliconFlow lenses, DeepInfra synthesis, Sabbath honored',
     endpoints: {
       health: '/health',
       dashboard: 'GET /dashboard',
@@ -122,15 +122,8 @@ app.get('/', (_req: Request, res: Response) => {
       detail: 'GET /api/swarm/:id',
     },
     fivePhases: ['awaken', 'conceive', 'disperse', 'gather', 'discern'],
-    canonicalSwarms: [
-      'ideaforge_validation (8 lenses)',
-      'contract_review (6 lenses)',
-      'creative_variation (6 lenses)',
-      'discovery_multilens (6 lenses)',
-      'growth_plan (6 lenses)',
-      'executive_scout (8 per executive × 7 = 56)',
-      'sentinel_redteam (5 lenses)',
-    ],
+    // The lens library outgrew the original seven — the live list is the truth:
+    templateLibrary: 'GET /api/swarm/templates (18 templates: 4 IdeaForge tiers, 6 general, wellspring, marketing, 7 executive scouts)',
   });
 });
 
@@ -173,7 +166,7 @@ async function start() {
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log('');
     console.log('═══════════════════════════════════════════════════════════');
-    console.log('  SWARM ORCHESTRATOR — Phase 0');
+    console.log('  SWARM ORCHESTRATOR');
     console.log('  "Where two or three are gathered..."');
     console.log('═══════════════════════════════════════════════════════════');
     console.log(`  Port:        ${PORT}`);

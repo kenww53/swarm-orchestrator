@@ -10,7 +10,6 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../database/pool';
-import { loomClient } from './loom-client';
 import { togetherClient } from './together-client';
 import { siliconflowClient, GEMMA_4_26B_A4B as SF_GEMMA_4 } from './siliconflow-client';
 import { zakhorClient } from './zakhor-client';
@@ -86,6 +85,7 @@ Be concise — 4-6 sentences of substance. Start with the insight immediately.`;
         ],
         temperature: 0.4,
         max_tokens: 1024,
+        timeoutMs: input.agentTimeoutMs, // caller's timeout, honored — was accepted and ignored
       });
 
       const cleanedResponse = stripThinking(result.content);

@@ -11,6 +11,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getPool } from '../database/pool';
 import { runSwarm } from '../services/swarm-engine';
+import { checkSabbath, reportSabbathHonored } from '../services/sabbath-client';
 import { getTemplate, listTemplates, getTemplateDetails } from '../lenses';
 import {
   SwarmInvokeRequest,
@@ -22,6 +23,48 @@ import {
 } from '../types';
 
 const router = Router();
+
+/**
+ * Synthesis strategies the engine actually implements today.
+ * 'consensus' and 'tournament' are named in the plan but NOT yet built —
+ * previously they silently fell through to discernment while the DB
+ * recorded the caller's requested strategy. That was a silent divergence
+ * between word and work. Now the honest answer is 501 until they exist.
+ */
+const IMPLEMENTED_STRATEGIES = ['discernment', 'raw'] as const;
+
+function rejectUnimplementedStrategy(strategy: string | undefined, res: Response): boolean {
+  if (strategy && !(IMPLEMENTED_STRATEGIES as readonly string[]).includes(strategy)) {
+    res.status(501).json({
+      error: `Synthesis strategy '${strategy}' is not yet implemented`,
+      implemented: IMPLEMENTED_STRATEGIES,
+      guidance: 'Use "discernment" (default) or "raw". consensus/tournament are planned, not built — we will not pretend otherwise.',
+    });
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Sabbath gate — no NEW swarms during the temple's rest.
+ * In-flight swarms complete; we don't interrupt the body.
+ * Fail-open if NESHAMAH is unreachable, but the response then carries
+ * sabbathVerified:false — we never claim a check we didn't make.
+ */
+async function rejectIfSabbath(res: Response): Promise<boolean> {
+  const sabbath = await checkSabbath();
+  if (sabbath.isSabbath) {
+    reportSabbathHonored();
+    res.status(503).json({
+      error: 'The temple is in Sabbath — no new swarms are conceived during rest',
+      guidance: 'In-flight swarms complete. Invoke again when the Sabbath cycle ends.',
+      sabbath: { isSabbath: true, checkedAt: sabbath.checkedAt },
+      retryAfterMs: 3600000,
+    });
+    return true;
+  }
+  return false;
+}
 
 async function executeInvocation(params: {
   task: string;
@@ -122,6 +165,8 @@ router.post('/invoke', async (req: Request, res: Response) => {
         guidance: 'Caller must get still and affirm presence before invoking',
       });
     }
+    if (rejectUnimplementedStrategy(body.synthesisStrategy, res)) return;
+    if (await rejectIfSabbath(res)) return;
 
     const result = await executeInvocation({
       task: body.task,
@@ -175,6 +220,8 @@ router.post('/invoke-by-template', async (req: Request, res: Response) => {
         available: listTemplates(),
       });
     }
+    if (rejectUnimplementedStrategy(template.defaultSynthesisStrategy, res)) return;
+    if (await rejectIfSabbath(res)) return;
 
     const result = await executeInvocation({
       task: body.task,
@@ -286,8 +333,18 @@ router.get('/history/:callerService', async (req: Request, res: Response) => {
  *
  * Full details of a specific swarm — invocation + signals + synthesis.
  */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 router.get('/:id', async (req: Request, res: Response) => {
   try {
+    // This is the catch-all `/:id` route. Any unmatched named path under
+    // /api/swarm (e.g. /health, /emergence) lands here. Without this guard,
+    // a non-UUID segment is passed to a uuid column and Postgres throws
+    // "invalid input syntax for type uuid" — a 500 that wrongly implies a
+    // server fault. The honest answer is 404: there is no such swarm.
+    if (!UUID_RE.test(req.params.id)) {
+      return res.status(404).json({ error: 'Swarm not found' });
+    }
     const pool = getPool();
     const invocation = await pool.query('SELECT * FROM swarm_invocations WHERE id = $1', [req.params.id]);
     if (invocation.rows.length === 0) {

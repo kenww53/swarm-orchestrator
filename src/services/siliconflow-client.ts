@@ -64,6 +64,8 @@ export interface SiliconFlowChatRequest {
   temperature?: number;
   max_tokens?: number;
   top_p?: number;
+  /** Per-call timeout override (ms). Falls back to LENS_TIMEOUT_MS. */
+  timeoutMs?: number;
 }
 
 export interface SiliconFlowChatResponse {
@@ -116,7 +118,7 @@ export class SiliconFlowClient {
             top_p: req.top_p ?? 0.9,
           },
           {
-            timeout: this.timeoutMs,
+            timeout: req.timeoutMs && req.timeoutMs > 0 ? req.timeoutMs : this.timeoutMs,
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${key}`,
